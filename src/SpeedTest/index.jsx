@@ -88,30 +88,47 @@ const SpeedTest = () => {
 
   useEffect(() => {
     let currentSpeed = speed;
-    let bytes = 0;
+    // theoretically, the array can be within our promise, so that it garbage collects after the promise is resolved since it is no longer needed
+    // this is why we set bytes to an empty array once our for loop is done
+    let bytes = [];
     const testFile = async () => {
       const response = await fetch("download");
       if (response.ok) {
         const stream = response.body.getReader();
         const startTime = new Date().getTime();
-        for (let i = 0; i < 1000; i++) {
+        for (let i = 0; i < 5000; i++) {
           const { done, value } = await stream.read();
-          bytes += value.byteLength;
-          const bps =
-            (value.byteLength * 8) /
-            ((new Date().getTime() - startTime) / 1000).toFixed(2);
-          const kbps = (bps / 1024).toFixed(2);
-          console.log(bytes);
-          currentSpeed = kbps;
-          setSpeed(currentSpeed);
-          console.log(currentSpeed);
-          if (done) {
+          try {
+            const bps = parseInt(
+              (value.byteLength * 8) /
+                ((new Date().getTime() - startTime) / 1000).toFixed(2)
+            );
+            const kbps = parseInt((bps / 1024).toFixed(2));
+            const mbps = parseInt((kbps / 1024).toFixed(2));
+            currentSpeed = bps;
+            if (currentSpeed > 0) {
+              bytes.push(currentSpeed);
+            }
+            let sum = 0;
+            for (const i in bytes) {
+              sum += bytes[i];
+            }
+
+            setSpeed(sum / bytes.length);
+            if (done) {
+              break;
+            }
+          } catch {
             break;
           }
         }
         // cancel the stream once we've finished the sample
         await stream.cancel();
         console.log("done!");
+
+        // clear the bytes array for the next sample
+
+        bytes = [];
 
         setActive(false);
 
